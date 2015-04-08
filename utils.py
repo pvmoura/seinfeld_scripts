@@ -3,6 +3,9 @@ import logging
 from string import ascii_uppercase, ascii_letters
 import re
 
+def has_colon(s):
+	return ':' in s
+
 def make_hist(iterable):
 	hist = {}
 	for i in iterable:
