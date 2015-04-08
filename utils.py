@@ -22,5 +22,8 @@ def strip_html(s):
 	s = re.sub(r'<[-a-z0-9 "=]+>', '', s)
 	return s
 
-def check_logistical_aside(s, starting_delim='(', ending_delim=')'):
-	return starting_delim in s[:2] and ending_delim in s[-3:]
+def check_logistical_aside(s, starting_delim='(', ending_delim=None):
+	end = True
+	if ending_delim:
+		end = ending_delim in s[-3:]
+	return starting_delim in s[:2] and end

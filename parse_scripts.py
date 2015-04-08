@@ -3,6 +3,7 @@ import re
 from string import lower
 from operator import itemgetter
 import logging
+from db import insert
 
 logging.basicConfig(filename='errors.log', level=logging.DEBUG,
 					format='%(asctime)s %(message)s')
@@ -97,6 +98,18 @@ def handle_special_case(speaker_text, line):
 			return False
 	return line
 
+def add_blocking(line, episode, line_number):
+	unit = {'table': 'blocking'}
+	if '(' in line[:2]:
+		unit['type'] = 'action'
+	elif '[' in line[:2]:
+		unit['type'] = 'stage_direction'
+	elif mostly_capital(line):
+		unit['type'] = 'location'
+	unit['text'] = line
+	unit['line_order'] = line_number
+	
+
 def breakdown_lines(script):
 	""" 
 	"""
@@ -110,6 +123,10 @@ def breakdown_lines(script):
 			actions.append(l)
 		elif check_logistical_aside(l, '[', ']'):
 			stage_directions.append(l)
+		elif check_logistical_aside(l, '['):
+			stage_directions.append(l)
+		elif check_logistical_aside(l, '('):
+			actions.append(l)
 		elif mostly_capital_letters(l, .05):
 			locations.append(l)
 		elif get_name(l):

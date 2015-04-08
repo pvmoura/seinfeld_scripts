@@ -45,8 +45,8 @@ def create_tables():
 
 		cursor.execute('''
 			CREATE TABLE IF NOT EXISTS
-				spoken_line(spoken_id INTEGER PRIMARY KEY NOT NULL,
-					text TEXT, episode_id INTEGER, line_order INTEGER,
+				spoken_line(spoken_id INTEGER PRIMARY KEY NOT NULL, text TEXT
+					raw_text TEXT, episode_id INTEGER, line_order INTEGER,
 					FOREIGN KEY(episode_id) REFERENCES episode(ep_id))'''
 		)
 		print 'created spoken line table'
@@ -60,11 +60,11 @@ def create_tables():
 
 		cursor.execute('''
 			CREATE TABLE IF NOT EXISTS
-				stage_direction(stage_id INTEGER PRIMARY KEY NOT NULL,
+			  blocking(stage_id INTEGER PRIMARY KEY NOT NULL, type TEXT,
 					text TEXT, episode_id INTEGER, line_order INTEGER,
 					FOREIGN KEY(episode_id) REFERENCES episode(ep_id))'''
 		)
-		print 'created stage direction table'
+		print 'created blocking table'
 		
 		cursor.execute('''
 			CREATE TABLE IF NOT EXISTS
@@ -92,6 +92,25 @@ def insert(**kwargs):
 	run_query(query)
 	print 'finished w'
 	return True
+
+def lookup(**kwargs):
+	table = kwargs.get('table')
+	if not table:
+		raise Exception('Please provide a table')
+	del kwargs['table']
+	column_string = ', '.join(kwargs['columns'])
+	db = sqlite3.connect(DB_LOCATION)
+	results = []
+	try:
+		c = db.cursor()
+		c.execute("SELECT {} from {} where {}").format(column_string, table, query)
+		for result in c:
+			results.append(result)
+	except Exception as e:
+		raise e
+	finally:
+		db.close()
+	return results
 
 def drop_table(table_name):
 	if not table_name:
