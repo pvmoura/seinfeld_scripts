@@ -1,0 +1,6 @@
+*.pyc
+*.txt
+scripts/*
+db/*
+*.log
+scratch/*

@@ -23,8 +23,8 @@ def create_tables():
 		cursor.execute('''
 			CREATE TABLE IF NOT EXISTS 
 				episode(ep_id INTEGER PRIMARY KEY NOT NULL, title TEXT,
-						 code TEXT, scribes TEXT, seinology_ref TEXT, air_date DATE,
-						 director TEXT)'''
+						 code TEXT, season TEXT, episode TEXT, authors TEXT,
+						 seinology_ref TEXT, air_date DATE, director TEXT)'''
 		)
 		print 'created episode table'
 
@@ -86,9 +86,11 @@ def insert(**kwargs):
 		raise Exception('Please provide a table')
 	del kwargs['table']
 	items = kwargs.items()
-	table_statement = '{}({})'.format(table, ', '.join(["'" + key + "'" for key, val in items]))
-	value_statement = "', ".join(["'" + val + "'" for key, val in items])
-	run_query("INSERT INTO {} VALUES({})".format(table_statement, value_statement))
+	table_statement = '{}({})'.format(table, ', '.join(['"' + key + '"' for key, val in items]))
+	value_statement = ", ".join(['"' + val + '"' for key, val in items])
+	query = "INSERT INTO {} VALUES({})".format(table_statement, value_statement)
+	run_query(query)
+	print 'finished w'
 	return True
 
 def drop_table(table_name):
