@@ -1,4 +1,6 @@
-from utils import has_colon, make_hist, mostly_capital_letters, strip_html, check_logistical_aside
+#!/usr/bin/env python
+
+from utils import make_hist, mostly_capital_letters, strip_html
 import re
 from string import lower
 from operator import itemgetter
@@ -72,17 +74,13 @@ def possible_speaker(line, names):
 			return index
 	return False
 
-def add_line(name, speaker_text, line, colon=True):
+def add_line(name, names, line, colon=True):
 	identifier = name.lower()
-	if not speaker_text.get(identifier):
-		speaker_text[identifier] = []
 	if colon:
 		name += ':'
 	index = line.index(name) + len(name)
-	raw_line = line[index:]
-	sans_parans_line = re.sub(r'\(.*\)', '', raw_line)
-	speaker_text[identifier].append((raw_line, sans_parans_line))
-	return speaker_text
+	sans_parans = re.sub(r'\(.*\)', '', line[index:])
+	return sans_parans
 
 def handle_special_case(speaker_text, line):
 	split_line = line.split()
@@ -98,54 +96,51 @@ def handle_special_case(speaker_text, line):
 			return False
 	return line
 
-def add_blocking(line, episode, line_number):
-	unit = {'table': 'blocking'}
-	if '(' in line[:2]:
-		unit['type'] = 'action'
-	elif '[' in line[:2]:
-		unit['type'] = 'stage_direction'
-	elif mostly_capital(line):
-		unit['type'] = 'location'
-	unit['text'] = line
-	unit['line_order'] = line_number
-	
-
 def breakdown_lines(script):
 	""" 
 	"""
-	speaker_text, actions, stage_directions, locations, misc = {}, [], [], [], []
+	def add_spoken(name, names, line, data, colon=True):
+		names.add(name)
+		data['table'] = 'spoken_line'
+		data['text'] = add_line(name, names, line, colon)
+		return names, data
+
+	names = set()
 	cleaned_script = clean_names(script)
-	for l in cleaned_script.split(DELIM):
-		l, name = strip_html(l), None
+	for i, l in enumerate(cleaned_script.split(DELIM)):
+		l, name, data = strip_html(l), get_name(l).lower(), {}
+		data['raw_text'] = l
+		data['line_order'] = i
+		data['table'] = 'blocking'
 		if not l:
 			continue
-		elif check_logistical_aside(l, '(', ')'):
-			actions.append(l)
-		elif check_logistical_aside(l, '[', ']'):
-			stage_directions.append(l)
-		elif check_logistical_aside(l, '['):
-			stage_directions.append(l)
-		elif check_logistical_aside(l, '('):
-			actions.append(l)
+		elif re.match(r'^[\(\[]', l):
+			data['type'] = 'action' if l[0] == '(' else 'stage_direction'
 		elif mostly_capital_letters(l, .05):
-			locations.append(l)
-		elif get_name(l):
-			speaker_text = add_line(get_name(l), speaker_text, l)
-		elif has_colon(l):
+			data['type'] = 'location'
+		elif name:
+			names, data = add_spoken(names, name, l, data)
+		elif re.match(r'[:;]', l) or possible_speaker(l, names):
+			index = possible_speaker(l, names) or l.split
 			words = l.split(':')[0].split()
-			if words[0].lower() in speaker_text.keys():
-				name = l.split(':')[0]
-				speaker_text = add_line(name, speaker_text, l)
+			if words[0].lower() in names:
+				names, data = add_spoken(names, l.split(':')[0], l, data)
+		elif ';' in l:
+			name, text = line.split(';')
+			names, data = add_spoken(names, name, text, data, False)
+		elif possible_speaker(l, names):
+			index = possible_speaker(l, names)
+			name = ' '.join(l.split()[:index])
+			names, data = add_spoken(names, name, l, data)
 		else:
-			special_case = handle_special_case(speaker_text, l)
-			if special_case:
-				misc.append(special_case)
+			data = {'table': 'misc', 'raw_text': l}	
 	
-	print misc
-	#return speaker_text, actions, stage_directions, locations
-	return None
+	return data
 
 def separate_meta(lines, ep, delim='====='):
+	""" The meta information is always separated from the script text by
+		a line of ='s. This function 
+	"""
 	has_delim = filter(lambda s: delim in s, lines)
 	if not has_delim:
 		logging.debug('no equals delimiter in episode %s\n' % ep)

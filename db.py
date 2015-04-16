@@ -61,7 +61,7 @@ def create_tables():
 		cursor.execute('''
 			CREATE TABLE IF NOT EXISTS
 			  blocking(stage_id INTEGER PRIMARY KEY NOT NULL, type TEXT,
-					text TEXT, episode_id INTEGER, line_order INTEGER,
+					raw_text TEXT, episode_id INTEGER, line_order INTEGER,
 					FOREIGN KEY(episode_id) REFERENCES episode(ep_id))'''
 		)
 		print 'created blocking table'
@@ -69,7 +69,8 @@ def create_tables():
 		cursor.execute('''
 			CREATE TABLE IF NOT EXISTS
 				misc(misc_id INTEGER PRIMARY KEY NOT NULL,
-					 line_text TEXT)'''
+					 raw_text TEXT, episode_id INTEGER,
+					 FOREIGN KEY(episode_id) REFERENCES episode(ep_id))'''
 		)
 		print 'created misc table'
 		db.commit()
@@ -90,7 +91,7 @@ def insert(**kwargs):
 	value_statement = ", ".join(['"' + val + '"' for key, val in items])
 	query = "INSERT INTO {} VALUES({})".format(table_statement, value_statement)
 	run_query(query)
-	print 'finished w'
+	print 'inserted into table:', table
 	return True
 
 def lookup(**kwargs):
@@ -105,7 +106,7 @@ def lookup(**kwargs):
 		c = db.cursor()
 		c.execute("SELECT {} from {} where {}").format(column_string, table, query)
 		for result in c:
-			results.append(result)
+			results.append({kwargs['columns'][i]: v for i, v in enumerate(result)})
 	except Exception as e:
 		raise e
 	finally:
