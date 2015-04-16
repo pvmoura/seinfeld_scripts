@@ -45,8 +45,9 @@ def create_tables():
 
 		cursor.execute('''
 			CREATE TABLE IF NOT EXISTS
-				spoken_line(spoken_id INTEGER PRIMARY KEY NOT NULL, text TEXT
+				line(line_id INTEGER PRIMARY KEY NOT NULL, text TEXT
 					raw_text TEXT, episode_id INTEGER, line_order INTEGER,
+					type TEXT,
 					FOREIGN KEY(episode_id) REFERENCES episode(ep_id))'''
 		)
 		print 'created spoken line table'
@@ -57,22 +58,6 @@ def create_tables():
 					spoken_id NOT NULL)'''
 		)
 		print 'created character, spoken lines join table'
-
-		cursor.execute('''
-			CREATE TABLE IF NOT EXISTS
-			  blocking(stage_id INTEGER PRIMARY KEY NOT NULL, type TEXT,
-					raw_text TEXT, episode_id INTEGER, line_order INTEGER,
-					FOREIGN KEY(episode_id) REFERENCES episode(ep_id))'''
-		)
-		print 'created blocking table'
-		
-		cursor.execute('''
-			CREATE TABLE IF NOT EXISTS
-				misc(misc_id INTEGER PRIMARY KEY NOT NULL,
-					 raw_text TEXT, episode_id INTEGER,
-					 FOREIGN KEY(episode_id) REFERENCES episode(ep_id))'''
-		)
-		print 'created misc table'
 		db.commit()
 	except Exception as e:
 		raise e

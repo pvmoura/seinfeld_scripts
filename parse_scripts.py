@@ -67,7 +67,7 @@ def get_names(script):
 	return filter(lambda n: n is not None, names)
 
 def possible_speaker(line, names):
-	speaker_chars = [',', 'and', '&'] + names
+	speaker_chars = names.union([',', 'and', '&'])
 	for index, word in enumerate(line.split()):
 		presence = word.lower() in speaker_chars
 		if not presence:
@@ -77,65 +77,54 @@ def possible_speaker(line, names):
 def add_line(name, names, line, colon=True):
 	identifier = name.lower()
 	if colon:
-		name += ':'
-	index = line.index(name) + len(name)
+		identifier += ':'
+	index = line.lower().index(identifier) + len(identifier)
 	sans_parans = re.sub(r'\(.*\)', '', line[index:])
 	return sans_parans
-
-def handle_special_case(speaker_text, line):
-	split_line = line.split()
-	if split_line[0].lower() in speaker_text.keys():
-		if ';' in line:
-			name, text = line.split(';')
-			speaker_text = add_line(name, speaker_text, line, False)
-			return False
-		if possible_speaker(line, speaker_text.keys()):
-			index = possible_speaker(line, speaker_text.keys())
-			name = ' '.join(split_line[:index])
-			speaker_text = add_line(name, speaker_text, line, False)
-			return False
-	return line
 
 def breakdown_lines(script):
 	""" 
 	"""
-	def add_spoken(name, names, line, data, colon=True):
+	def add_spoken(names, name, line, data, colon=True):
 		names.add(name)
-		data['table'] = 'spoken_line'
+		data['type'] = 'spoken'
 		data['text'] = add_line(name, names, line, colon)
 		return names, data
 
-	names = set()
+	names = set([',', 'and', '&'])
 	cleaned_script = clean_names(script)
+	lines = []
 	for i, l in enumerate(cleaned_script.split(DELIM)):
-		l, name, data = strip_html(l), get_name(l).lower(), {}
+		l, name, data = strip_html(l), get_name(l), {}
 		data['raw_text'] = l
 		data['line_order'] = i
-		data['table'] = 'blocking'
+		data['table'] = 'line'
 		if not l:
 			continue
 		elif re.match(r'^[\(\[]', l):
 			data['type'] = 'action' if l[0] == '(' else 'stage_direction'
-		elif mostly_capital_letters(l, .05):
-			data['type'] = 'location'
 		elif name:
-			names, data = add_spoken(names, name, l, data)
-		elif re.match(r'[:;]', l) or possible_speaker(l, names):
-			index = possible_speaker(l, names) or l.split
-			words = l.split(':')[0].split()
-			if words[0].lower() in names:
-				names, data = add_spoken(names, l.split(':')[0], l, data)
-		elif ';' in l:
-			name, text = line.split(';')
-			names, data = add_spoken(names, name, text, data, False)
+			names, data = add_spoken(names, name.lower(), l, data)
+		elif re.match(r'[:;]', l):
+			delim = ':' if ':' in l else ';'
+			names_set = set(map(lambda s: s.lower(), l.split(delim)[0]))
+			if names_set == names_set.intersection(names):
+				names, data = add_spoken(names, potential_names, l, data,
+										 delim == ':')
+			else:
+				data['type'] = 'misc'
 		elif possible_speaker(l, names):
 			index = possible_speaker(l, names)
 			name = ' '.join(l.split()[:index])
-			names, data = add_spoken(names, name, l, data)
+			names, data = add_spoken(names, name, l, data, False)
+			print data
+		elif mostly_capital_letters(l, .05):
+			data['type'] = 'location'
 		else:
-			data = {'table': 'misc', 'raw_text': l}	
+			data['type'] = 'misc'
+		lines.append(data)
 	
-	return data
+	return lines
 
 def separate_meta(lines, ep, delim='====='):
 	""" The meta information is always separated from the script text by
