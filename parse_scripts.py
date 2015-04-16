@@ -11,6 +11,7 @@ logging.basicConfig(filename='errors.log', level=logging.DEBUG,
 					format='%(asctime)s %(message)s')
 
 DELIM = '<br><br>'
+MONOLOGUE_LENGTH = 250
 
 def clean_names(script):
 	""" Take a script and clear it's names of typos
@@ -66,74 +67,94 @@ def get_names(script):
 	names = [get_name(l) for l in script.split(DELIM)]
 	return filter(lambda n: n is not None, names)
 
-def possible_speaker(line, names):
-	speaker_chars = names.union([',', 'and', '&'])
-	for index, word in enumerate(line.split()):
-		presence = word.lower() in speaker_chars
-		if not presence:
-			return index
-	return False
-
-def add_line(name, names, line, colon=True):
-	identifier = name.lower()
-	if colon:
-		identifier += ':'
-	index = line.lower().index(identifier) + len(identifier)
-	sans_parans = re.sub(r'\(.*\)', '', line[index:])
-	return sans_parans
-
-def breakdown_lines(script):
+def process_lines(script):
 	""" 
 	"""
-	def add_spoken(names, name, line, data, colon=True):
+	def add_spoken(names, name, line, data, delim=None):
 		names.add(name)
 		data['type'] = 'spoken'
-		data['text'] = add_line(name, names, line, colon)
+		text = get_spoken_text(name, line, delim)
+		data['text'] = text
+		if len(text) > 400:
+			data['special'] = 'monologue'
+		data['speaker'] = name
 		return names, data
+	
+	def speaker_index(line, names):
+		for index, word in enumerate(line.split()):
+			if not word.lower() in names:
+				return index
+		return False
+	
+	def get_spoken_text(name, line, delim=None):
+		identifier = name.lower()
+		if delim:
+			identifier += delim
+		try:
+			index = line.lower().index(identifier) + len(identifier)
+		except ValueError:
+			index = 0
+		return re.sub(r'\(.*\)', '', line[index:])
+
+	def process_line(index, line, names):
+		line, name, data = strip_html(line), get_name(line), {}
+		data['raw_text'] = line
+		data['line_order'] = index
+		data['table'] = 'line'
+		if re.match(r'^[\(\[]', line):
+			data['type'] = 'action' if line[0] == '(' else 'stage_direction'
+		elif name:
+			names, data = add_spoken(names, name.lower(), line, data, ':')
+		elif re.match(r'[:;]', line):
+			delim = ':' if ':' in line else ';'
+			split_line = line.split(delim)
+			names_set = set(map(lambda s: s.lower(), split_line[0]))
+			print names_set == names_set.intersection(names)
+			if names_set == names_set.intersection(names):
+				names, data = add_spoken(names, split_line[0], line, data,delim)
+			else:
+				data['type'] = 'misc'
+		elif speaker_index(line, names):
+			index = speaker_index(line, names)
+			name = ' '.join(line.split()[:index])
+			names, data = add_spoken(names, name, line, data)
+		elif mostly_capital_letters(line, .05):
+			data['type'] = 'location'
+		elif re.match(r'[\)\]]$', line):
+			data['type'] = 'action' if line[-1] == ')' else 'stage_direction'
+		elif len(l) > 400:
+			#probably a monologue
+			names, data = add_spoken(names, 'jerry', line, data)
+		else:
+			data['type'] = 'misc'
+
+		return data
 
 	names = set([',', 'and', '&'])
 	cleaned_script = clean_names(script)
-	lines = []
-	for i, l in enumerate(cleaned_script.split(DELIM)):
-		l, name, data = strip_html(l), get_name(l), {}
-		data['raw_text'] = l
-		data['line_order'] = i
-		data['table'] = 'line'
-		if not l:
-			continue
-		elif re.match(r'^[\(\[]', l):
-			data['type'] = 'action' if l[0] == '(' else 'stage_direction'
-		elif name:
-			names, data = add_spoken(names, name.lower(), l, data)
-		elif re.match(r'[:;]', l):
-			delim = ':' if ':' in l else ';'
-			names_set = set(map(lambda s: s.lower(), l.split(delim)[0]))
-			if names_set == names_set.intersection(names):
-				names, data = add_spoken(names, potential_names, l, data,
-										 delim == ':')
-			else:
-				data['type'] = 'misc'
-		elif possible_speaker(l, names):
-			index = possible_speaker(l, names)
-			name = ' '.join(l.split()[:index])
-			names, data = add_spoken(names, name, l, data, False)
-			print data
-		elif mostly_capital_letters(l, .05):
-			data['type'] = 'location'
-		else:
-			data['type'] = 'misc'
-		lines.append(data)
-	
+	names = names.union(get_names(cleaned_script))
+	lines = [process_line(i, l, names)
+			 for i, l in enumerate(cleaned_script.split(DELIM)) if l]	
 	return lines
 
-def separate_meta(lines, ep, delim='====='):
+def separate_meta(script, ep, delim='====='):
 	""" The meta information is always separated from the script text by
-		a line of ='s. This function 
+		a line of ='s. This function, given a script, splits the script on that
+		delimiter
+		
+		param script
+			str - a script string
+		param ep
+			str - a seinology episode reference
+		param delim
+			str - the meta delimiter, ==== as default
 	"""
+	lines = script.split(DELIM)
 	has_delim = filter(lambda s: delim in s, lines)
 	if not has_delim:
 		logging.debug('no equals delimiter in episode %s\n' % ep)
 		return False
-
-	index = lines.index(has_delim[0])
-	return lines[:index], lines[index+1:]
+	index = 0
+	while has_delim:
+		index = lines.index(has_delim.pop(0), index+1)	
+	return DELIM.join(lines[:index]), DELIM.join(lines[index+1:])

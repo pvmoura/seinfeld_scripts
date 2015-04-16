@@ -73,11 +73,11 @@ def clean_raw_script_html(script, ep_num):
 			str - the episode number to query (based on seinology nomenclature
 			i.e. 82and83 instead of 82)
 	"""
-	escapes = { '&#145;': "'", '&#146;': "'", '&#147;': '"', '&#148;': '"',
+	escapes = { '&#145;': "'", '&#146;': "'", '&#147;': "'", '&#148;': "'",
 				'&#150;': '-', '&#38;': '&', '&amp;': '&', '&nbsp;': ' ',
 				'&#146t': "'", '&#63;': '?', '&#62;': '>', '&#61;': '=',
 				'&#60;': '<', '&#59;': ';', '&#58;': ':', '&#33;': '!',
-				'&quot;': '"'}
+				'&quot;': "'", '"': "'"}
 	text = script.split('<font size="-2">')
 	if len(text) < 2:
 		logging.debug('failed to split text for: %s' % ep_num)
@@ -99,10 +99,18 @@ def store_scripts(first, last):
 		with open('scripts/%s.txt' % i, 'w') as f:
 			f.write(script)
 			print 'wrote script %s' % i
-		print 'hello it\'s in here'
 		time.sleep(3)
 	return True
 
+def fetch_clean_script(ep_num, source='file'):
+	actions = {'file': fetch_script_from_file, 'net': fetch_script_from_net}
+	script = actions[source](ep_num)
+	cleaned_script = clean_raw_script_html(script, ep_num)
+	return cleaned_script
+
+def fetch_clean_scripts(first, last):
+	for i in episode_nums(first, last):
+		yield fetch_clean_script(i)
 
 if __name__ == '__main__':
 	import sys
@@ -110,8 +118,9 @@ if __name__ == '__main__':
 	if length > 4 or length < 2:
 		print 'Usage: get_scripts.py store [first] [last]'
 		sys.exit(1)
-	else:
+	elif length == 4:
 		command, last = sys.argv[1], int(sys.argv[3])
 	commands = { 'store': store_scripts }
+	command = sys.argv[1]
 	commands[command](int(sys.argv[2]), last)
 	print 'finished'

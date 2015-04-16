@@ -1,3 +1,12 @@
+from parse_scripts import clean_names, process_lines, separate_meta
+from get_scripts import fetch_script_from_file, clean_raw_script_html
+
+def get_test_script(ep):
+	script = fetch_script_from_file(ep)
+	script = clean_raw_script_html(script, ep)
+	meta, script = separate_meta(script, ep)
+	return process_lines(script)
+
 def test_lines():
 	test1 = ['JERRY: ', 'JERRY: ', 'JERY: ']
 	assert clean_names(test1) == ['JERRY: ', 'JERRY: ', 'JERRY: ']
@@ -21,5 +30,6 @@ def test_similar():
 	assert clean_names(test1) == set([(('ELNE', 1), ('ELAINE', 2))])
 
 if __name__ == "__main__":
-	test_similar()
-	test_lines()
+	#test_similar()
+	#test_lines()
+	lines = get_test_script('91')
