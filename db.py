@@ -33,7 +33,7 @@ def create_tables():
 		cursor.execute('''
 			CREATE TABLE IF NOT EXISTS
 				character(char_id INTEGER PRIMARY KEY NOT NULL, first_name TEXT,
-					last_name TEXT, actor_first_name TEXT, actor_last_name TEXT
+					last_name TEXT, actor_first_name TEXT, actor_last_name TEXT,					title TEXT, special_name TEXT
 						   )'''
 		)
 		print 'created character table'
@@ -88,12 +88,13 @@ def lookup(**kwargs):
 		raise Exception('Please provide a table')
 	del kwargs['table']
 	column_string = ', '.join(kwargs['columns'])
-	query = ', '.join(["'%s'='%s'" % (k, v) for k, v in kwargs['query'].items()])
+	query = ', '.join(["%s='%s'" % (k, v) for k, v in kwargs['query'].items()])
 	db = sqlite3.connect(DB_LOCATION)
 	results = []
 	try:
 		c = db.cursor()
 		statement = "SELECT {} FROM {} WHERE {}".format(column_string, table, query)
+		print statement
 		c.execute(statement)
 		for result in c:
 			results.append({kwargs['columns'][i]: v for i, v in enumerate(result)})
