@@ -11,7 +11,6 @@ logging.basicConfig(filename='errors.log', level=logging.DEBUG,
 					format='%(asctime)s %(message)s')
 
 DELIM = '<br><br>'
-MONOLOGUE_LENGTH = 250
 
 def clean_names(script):
 	""" Take a script and clear it's names of typos
@@ -43,7 +42,7 @@ def clean_names(script):
 			script = script.replace(wrong_string, right_string)
 	return script
 
-def get_name(line):
+def get_name(line, characters=None):
 	""" Get the name (if it exists) from a line
 		
 		param line:
@@ -51,11 +50,28 @@ def get_name(line):
 
 		'JERRY: Some text' will output 'JERRY' 
 	"""
-	colon_split = line.split(':')
+	def check_name_against_tuple(name, char_tuple):
+		# if no first name
+		name, char_list = name.lower(), map(lambda s: s.lower(), char_tuple)
+		try:
+			return (char_list.index(name), None)
+		except ValueError:
+			pass
+		full_name = ' '.join([c for c in a[:3] if c])
+		if name == full_name:
+			return (0, 3)
+		
+		return None	
+	colon_split, name_location = line.split(':'), None
 	if len(colon_split) > 1:
 		name = colon_split[0]
 		name = re.sub(' {0,3}\(.+\)', '', name)
-		if len(name) < 20 and mostly_capital_letters(name):
+		if characters:
+			name_location = [(c, check_name_against_tuple(c))
+							 for c in characters if check_name_against_tuple(c)]
+		if name_location:
+			return name_location
+		elif (len(name) < 20 and mostly_capital_letters(name)):
 			return name 
 	return None
 
@@ -101,12 +117,12 @@ def process_lines(script):
 		data['raw_text'] = line
 		data['line_order'] = index
 		data['table'] = 'line'
-		if re.match(r'^[\(\[]', line):
+		if re.match(r'^[(\[]', line):
 			data['type'] = 'action' if line[0] == '(' else 'stage_direction'
 		elif name:
 			names, data = add_spoken(names, name.lower(), line, data, ':')
 		elif re.match(r'[:;]', line):
-			delim = ':' if ':' in line else ';'
+			delim = ':' if ':' in line[:20] else ';'
 			split_line = line.split(delim)
 			names_set = set(map(lambda s: s.lower(), split_line[0]))
 			print names_set == names_set.intersection(names)
